@@ -6,6 +6,6 @@
       <port type='dst'>25</port>     
       <flags>-m state --state NEW</flags>
     </rule>                   
-   <enabled>false</enabled>
+   <enabled>true</enabled>
    <required>false</required>
     </service>   
