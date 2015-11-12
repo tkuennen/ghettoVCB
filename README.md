@@ -19,14 +19,22 @@ esxcli software vib install -d /vghetto-ghettoVCB-offline-bundle.zip -f
 ```
 Configure firewall rule 
 ```
-
 cp smtpout.xml /etc/vmware/firewall/smtpout.xml
 ```
-
+```
+esxcli network firewall refresh
+```
 esxcli network firewall ruleset list | grep smtp
 ```
-
-esxcli network firewall refresh
+Manually running backup
+```
+./ghettoVCB.sh -a (all vms)
+./ghettoVCB.sh -f vmlistfile 
+```
+Setting up a cronjob
+```
+ /var/spool/cron/crontabs/root
+00**15 /vmfs/volumes/backups/ghettoVCB.sh -f /vmfs/volumes/backups/vmlist
 ```
 List installed vibs
 ```
