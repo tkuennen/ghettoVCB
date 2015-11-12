@@ -28,8 +28,14 @@ esxcli network firewall ruleset list | grep smtp
 
 esxcli network firewall refresh
 ```
-
-
+List installed vibs
+```
+esxcli software vib list |grep -i ghetto
+ghettoVCB                      1.0.0-0.0.0                           virtuallyGhetto  CommunitySupported  2015-10-06  
+```
+Remove ghettoVCB
+```
+```
 ### Additional Documentation & Resources
 - [ghettoVCB Documentation](http://communities.vmware.com/docs/DOC-8760)
 - [ghettoVCB VMTN Group](http://communities.vmware.com/groups/ghettovcb)
