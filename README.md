@@ -35,6 +35,13 @@ ghettoVCB                      1.0.0-0.0.0                           virtuallyGh
 ```
 Remove ghettoVCB
 ```
+esxcli software vib remove --vibname=ghettoVCB
+Removal Result
+   Message: Operation finished successfully.
+   Reboot Required: false
+   VIBs Installed: 
+   VIBs Removed: virtuallyGhetto_bootbank_ghettoVCB_1.0.0-0.0.0
+   VIBs Skipped: 
 ```
 ### Additional Documentation & Resources
 - [ghettoVCB Documentation](http://communities.vmware.com/docs/DOC-8760)
