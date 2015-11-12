@@ -18,10 +18,13 @@ Install offline bundle
 esxcli software vib install -d /vghetto-ghettoVCB-offline-bundle.zip -f
 ```
 Configure firewall rule 
+```
 
 cp smtpout.xml /etc/vmware/firewall/smtpout.xml
+```
 
 esxcli network firewall ruleset list | grep smtp
+```
 
 esxcli network firewall refresh
 ```
