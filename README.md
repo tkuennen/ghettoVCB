@@ -24,7 +24,10 @@ cp smtpout.xml /etc/vmware/firewall/smtpout.xml
 ```
 esxcli network firewall refresh
 ```
+```
 esxcli network firewall ruleset list | grep smtp
+```
+
 Manually running backup
 ```
 ./ghettoVCB.sh -a (all vms)
