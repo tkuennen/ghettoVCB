@@ -1,11 +1,14 @@
-    <service id='0040'>
-     <id>smtpout</id>
-     <rule id='0000'>
-      <direction>outbound</direction>
-      <protocol>tcp</protocol>
-      <port type='dst'>25</port>     
-      <flags>-m state --state NEW</flags>
-    </rule>                   
-   <enabled>true</enabled>
-   <required>false</required>
-    </service>   
+<ConnfigRoot>
+  <service>
+      <id>smtpout</id>
+      <rule id="0000">
+         <direction>outbound</direction>
+         <protocol>tcp</protocol>
+         <porttype>dst</porttype>
+         <port>25</port>
+      </rule>
+         <enabled>true</enabled>
+         <required>false</required>
+  </service>
+</ConfigRoot>
+
