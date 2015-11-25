@@ -53,6 +53,12 @@ Removal Result
    VIBs Removed: virtuallyGhetto_bootbank_ghettoVCB_1.0.0-0.0.0
    VIBs Skipped: 
 ```
+To restore a vm manually
+```
+rm original .vmdk files
+vmkfstools -i <backup vm> <original vm>
+```
+
 ### Additional Documentation & Resources
 - [ghettoVCB Documentation](http://communities.vmware.com/docs/DOC-8760)
 - [ghettoVCB VMTN Group](http://communities.vmware.com/groups/ghettovcb)
