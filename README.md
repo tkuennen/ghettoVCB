@@ -54,9 +54,10 @@ Removal Result
    VIBs Skipped: 
 ```
 To restore a vm manually
+Note: Do not restore the -flat.vmdk.. It will do that for you. 
 ```
 rm original .vmdk files
-vmkfstools -i <backup vm> <original vm>
+vmkfstools -i <backup vmdk> <original vmdk>
 ```
 
 ### Additional Documentation & Resources
