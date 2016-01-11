@@ -35,8 +35,8 @@ Manually running backup
 ```
 Setting up a cronjob
 ```
-/var/spool/cron/crontabs/root
-/vmfs/volumes/backups/ghettoVCB.sh-f/vmfs/volumes/backups/vmlist
+vi /var/spool/cron/crontabs/root
+0    14   *   *   * /vmfs/volumes/backupdatastore/ghettoVCB.sh -f /vmfs/volumes/backupdatastore/vmlist  > /tmp/ghettoVCB.log
 ```
 List installed vibs
 ```
