@@ -35,6 +35,14 @@ Manually running backup
 ```
 Setting up a cronjob
 ```
+###################################################################
+#minute (0-59),                                                   #
+#|    hour (0-23),                                                #
+#|    |        day of the month (1-31),                           #
+#|    |        |       month of the year (1-12),                  #
+#|    |        |       |       day of the week (0-6 with 0=Sunday)#
+#|    |        |       |       |       commands                   #
+###################################################################
 vi /var/spool/cron/crontabs/root
 0    14   *   *   * /vmfs/volumes/backupdatastore/ghettoVCB.sh -f /vmfs/volumes/backupdatastore/vmlist  > /tmp/ghettoVCB.log
 ```
