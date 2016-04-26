@@ -64,7 +64,7 @@ Removal Result
 To restore a vm manually
 
 
-Note: Do not restore the -flat.vmdk.. It will do that for you. 
+Note: Do not restore the -flat.vmdk. It will do that for you. 
 ```
 rm original .vmdk files
 vmkfstools -i <backup vmdk> <original vmdk>
