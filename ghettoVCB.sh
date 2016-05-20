@@ -7,7 +7,7 @@
 #                   User Definable Parameters
 ##################################################################
 
-LAST_MODIFIED_DATE=2015_05_06
+LAST_MODIFIED_DATE=2016_05_20
 VERSION=1
 
 # directory that all VM backups should go (e.g. /vmfs/volumes/SAN_LUN1/mybackupdir)
@@ -21,7 +21,7 @@ VM_BACKUP_VOLUME=/vmfs/volumes/mini-local-datastore-2/backups
 DISK_BACKUP_FORMAT=thin
 
 # Number of backups for a given VM before deleting
-VM_BACKUP_ROTATION_COUNT=3
+VM_BACKUP_ROTATION_COUNT=14
 
 # Shutdown guestOS prior to running backups and power them back on afterwards
 # This feature assumes VMware Tools are installed, else they will not power down and loop forever
