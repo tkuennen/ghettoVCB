@@ -19,6 +19,21 @@ esxcli software vib install -d /vghetto-ghettoVCB-offline-bundle.zip -f
 ```
 Configure firewall rule 
 ```
+<ConfigRoot>
+  <service>
+      <id>smtpout</id>
+      <rule id="0000">
+         <direction>outbound</direction>
+         <protocol>tcp</protocol>
+         <porttype>dst</porttype>
+         <port>25</port>
+      </rule>
+         <enabled>true</enabled>
+         <required>false</required>
+  </service>
+</ConfigRoot>
+
+
 cp smtpout.xml /etc/vmware/firewall/smtpout.xml
 ```
 ```
