@@ -7,11 +7,11 @@
 #                   User Definable Parameters
 ##################################################################
 
-LAST_MODIFIED_DATE=2016_05_20
+LAST_MODIFIED_DATE=2016_11_20
 VERSION=1
 
 # directory that all VM backups should go (e.g. /vmfs/volumes/SAN_LUN1/mybackupdir)
-VM_BACKUP_VOLUME=/vmfs/volumes/mini-local-datastore-2/backups
+VM_BACKUP_VOLUME=/vmfs/volumes/mini-local-datastore-hdd/backups
 
 # Format output of VMDK backup
 # zeroedthick
@@ -32,7 +32,7 @@ POWER_VM_DOWN_BEFORE_BACKUP=0
 ENABLE_HARD_POWER_OFF=0
 
 # if the above flag "ENABLE_HARD_POWER_OFF "is set to 1, then will look at this flag which is the # of iterations
-# the script will wait before executing a hard power off, this will be a multiple of 60seconds 
+# the script will wait before executing a hard power off, this will be a multiple of 60seconds
 # (e.g) = 3, which means this will wait up to 180seconds (3min) before it just powers off the VM
 ITER_TO_WAIT_SHUTDOWN=3
 
@@ -57,7 +57,7 @@ ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP=0
 
 ##########################################################
 # NON-PERSISTENT NFS-BACKUP ONLY
-# 
+#
 # ENABLE NON PERSISTENT NFS BACKUP 1=on, 0=off
 
 ENABLE_NON_PERSISTENT_NFS=0
@@ -84,6 +84,8 @@ NFS_VM_BACKUP_DIR=mybackups
 # EMAIL CONFIGURATIONS
 #
 
+# Email Alerting 1=yes, 0=no
+EMAIL_ALERT=0
 # Email log 1=yes, 0=no
 EMAIL_LOG=0
 
@@ -99,8 +101,11 @@ EMAIL_SERVER_PORT=25
 # Email FROM
 EMAIL_FROM=root@ghettoVCB
 
-# Email RCPT
+# Comma seperated list of receiving email addresses
 EMAIL_TO=auroa@primp-industries.com
+
+# Comma seperated list of additional receiving email addresses if status is not "OK"
+EMAIL_ERRORS_TO=
 
 # Comma separated list of VM startup/shutdown ordering
 VM_SHUTDOWN_ORDER=
@@ -195,7 +200,7 @@ logger() {
         fi
 
         if [[ "${EMAIL_LOG}" -eq 1 ]] ; then
-            echo -ne "${TIME} -- ${LOG_TYPE}: ${MSG}\r\n" >> "${EMAIL_LOG_OUTPUT}"      
+            echo -ne "${TIME} -- ${LOG_TYPE}: ${MSG}\r\n" >> "${EMAIL_LOG_OUTPUT}"
         fi
     fi
 }
@@ -262,7 +267,7 @@ sanityCheck() {
     ESX_RELEASE=$(uname -r)
 
     case "${ESX_VERSION}" in
-        6.0.0)                VER=6; break;;
+        6.0.0|6.5.0)          VER=6; break;;
         5.0.0|5.1.0|5.5.0)    VER=5; break;;
         4.0.0|4.1.0)          VER=4; break;;
         3.5.0|3i)             VER=3; break;;
@@ -287,7 +292,7 @@ sanityCheck() {
     [[ ! -f /bin/tar ]] && TAR="busybox tar"
 
     # Enable multiextent VMkernel module if disk format is 2gbsparse (disabled by default in 5.1)
-    if [[ "${DISK_BACKUP_FORMAT}" == "2gbsparse" ]] && [[ "${VER}" -eq 5 ]] || [[ "${VER}" == "6" ]]; then
+    if [[ "${DISK_BACKUP_FORMAT}" == "2gbsparse" ]] && [[ "${VER}" -eq 5 || "${VER}" == "6" ]]; then
         esxcli system module list | grep multiextent > /dev/null 2>&1
 	if [ $? -eq 1 ]; then
             logger "info" "multiextent VMkernel module is not loaded & is required for 2gbsparse, enabling ..."
@@ -333,6 +338,7 @@ captureDefaultConfigurations() {
     DEFAULT_VM_SHUTDOWN_ORDER="${VM_SHUTDOWN_ORDER}"
     DEFAULT_VM_STARTUP_ORDER="${VM_STARTUP_ORDER}"
     DEFAULT_RSYNC_LINK="${RSYNC_LINK}"
+    DEFAULT_BACKUP_FILES_CHMOD="${BACKUP_FILES_CHMOD}"
 }
 
 useDefaultConfigurations() {
@@ -354,6 +360,7 @@ useDefaultConfigurations() {
     VM_SHUTDOWN_ORDER="${DEFAULT_VM_SHUTDOWN_ORDER}"
     VM_STARTUP_ORDER="${DEFAULT_VM_STARTUP_ORDER}"
     RSYNC_LINK="${RSYNC_LINK}"
+    BACKUP_FILES_CHMOD="${BACKUP_FILES_CHMOD}"
 }
 
 reConfigureGhettoVCBConfiguration() {
@@ -408,6 +415,9 @@ getVMDKs() {
     #get all VMDKs listed in .vmx file
     VMDKS_FOUND=$(grep -iE '(^scsi|^ide|^sata)' "${VMX_PATH}" | grep -i fileName | awk -F " " '{print $1}')
 
+    VMDKS=
+    INDEP_VMDKS=
+
     TMP_IFS=${IFS}
     IFS=${ORIG_IFS}
     #loop through each disk and verify that it's currently present and create array of valid VMDKS
@@ -419,7 +429,7 @@ getVMDKs() {
         #if valid, then we use the vmdk file
         if [[ $? -eq 0 ]]; then
             #verify disk is not independent
-            grep -i "^${SCSI_ID}.mode" "${VMX_PATH}" | grep -i "independent" > /dev/null 2>&1 
+            grep -i "^${SCSI_ID}.mode" "${VMX_PATH}" | grep -i "independent" > /dev/null 2>&1
             if [[ $? -eq 1 ]]; then
                 grep -i "^${SCSI_ID}.deviceType" "${VMX_PATH}" | grep -i "scsi-hardDisk" > /dev/null 2>&1
 
@@ -504,6 +514,7 @@ dumpVMConfigurations() {
     logger "info" "CONFIG - VM_SHUTDOWN_ORDER = ${VM_SHUTDOWN_ORDER}"
     logger "info" "CONFIG - VM_STARTUP_ORDER = ${VM_STARTUP_ORDER}"
     logger "info" "CONFIG - RSYNC_LINK = ${RSYNC_LINK}"
+    logger "info" "CONFIG - BACKUP_FILES_CHMOD = ${BACKUP_FILES_CHMOD}"
     logger "info" "CONFIG - EMAIL_LOG = ${EMAIL_LOG}"
     if [[ "${EMAIL_LOG}" -eq 1 ]]; then
         logger "info" "CONFIG - EMAIL_SERVER = ${EMAIL_SERVER}"
@@ -757,6 +768,7 @@ ghettoVCB() {
     VM_OK=0
     VM_FAILED=0
     VMDK_FAILED=0
+    PROBLEM_VMS=
 
     dumpHostInfo
 
@@ -803,7 +815,7 @@ ghettoVCB() {
             powerOff "${VM_NAME}" "${VM_ID}"
             if [[ ${POWER_OFF_EC} -eq 1 ]]; then
                 logger "debug" "Error unable to shutdown VM ${VM_NAME}\n"
-                exit 1
+                PROBLEM_VMS="${PROBLEM_VMS} ${VM_NAME}"
             fi
         done
 
@@ -816,6 +828,16 @@ ghettoVCB() {
             grep -E "^${VM_NAME}" "${VM_EXCLUSION_FILE}" > /dev/null 2>&1
             if [[ $? -eq 0 ]] ; then
                 IGNORE_VM=1
+                #VM_FAILED=0   #Excluded VM is NOT a failure. No need to set here, but listed for clarity
+            fi
+        fi
+
+        if [[ "${IGNORE_VM}" -eq 0 ]] && [[ -n "${PROBLEM_VMS}" ]] ; then
+            if [[ "${PROBLEM_VMS/$VM_NAME}" != "$PROBLEM_VMS" ]] ; then
+                logger "info" "Ignoring ${VM_NAME} as a problem VM\n"
+                IGNORE_VM=1
+                #A VM ignored due to a problem, should be treated as a failure
+                VM_FAILED=1
             fi
         fi
 
@@ -841,9 +863,9 @@ ghettoVCB() {
             storageInfo "before"
         fi
 
-        #ignore VM as it's in the exclusion list
+        #ignore VM as it's in the exclusion list or was on problem list
         if [[ "${IGNORE_VM}" -eq 1 ]] ; then
-            logger "debug" "Ignoring ${VM_NAME} for backup since its located in exclusion list\n"           
+            logger "debug" "Ignoring ${VM_NAME} for backup since it is located in exclusion file or problem list\n"
         #checks to see if we can pull out the VM_ID
         elif [[ -z ${VM_ID} ]] ; then
             logger "info" "ERROR: failed to locate and extract VM_ID for ${VM_NAME}!\n"
@@ -1019,7 +1041,7 @@ ghettoVCB() {
 
                         findVMDK "${VMDK}"
 
-                        if [[ $isVMDKFound -eq 1 ]] || [[ "${VMDK_FILES_TO_BACKUP}" == "all" ]]; then 
+                        if [[ $isVMDKFound -eq 1 ]] || [[ "${VMDK_FILES_TO_BACKUP}" == "all" ]]; then
                             #added this section to handle VMDK(s) stored in different datastore than the VM
                             echo ${VMDK} | grep "^/vmfs/volumes" > /dev/null 2>&1
                             if [[ $? -eq 0 ]] ; then
@@ -1068,7 +1090,7 @@ ghettoVCB() {
 
                                     if  [[ -z "${FORMAT_OPTION}" ]] ; then
                                         logger "debug" "${VMKFSTOOLS_CMD} -i \"${SOURCE_VMDK}\" -a \"${ADAPTER_FORMAT}\" \"${DESTINATION_VMDK}\""
-                                        ${VMKFSTOOLS_CMD} -i "${SOURCE_VMDK}" -a "${ADAPTER_FORMAT}" "${DESTINATION_VMDK}" > "${VMDK_OUTPUT}" 2>&1                  
+                                        ${VMKFSTOOLS_CMD} -i "${SOURCE_VMDK}" -a "${ADAPTER_FORMAT}" "${DESTINATION_VMDK}" > "${VMDK_OUTPUT}" 2>&1
                                     else
                                         logger "debug" "${VMKFSTOOLS_CMD} -i \"${SOURCE_VMDK}\" -a \"${ADAPTER_FORMAT}\" -d \"${FORMAT_OPTION}\" \"${DESTINATION_VMDK}\""
                                         ${VMKFSTOOLS_CMD} -i "${SOURCE_VMDK}" -a "${ADAPTER_FORMAT}" -d "${FORMAT_OPTION}" "${DESTINATION_VMDK}" > "${VMDK_OUTPUT}" 2>&1
@@ -1190,6 +1212,11 @@ ghettoVCB() {
                         ln -sf "${SYMLINK_DST1}" "${SYMLINK_SRC}"
                     fi
 
+                    if [[ "${BACKUP_FILES_CHMOD}" != "" ]]
+                    then
+                        chmod -R "${BACKUP_FILES_CHMOD}" "${VM_BACKUP_DIR}"
+                    fi
+
                     #storage info after backup
                     storageInfo "after"
                 fi
@@ -1219,7 +1246,7 @@ ghettoVCB() {
     #fi
     unset IFS
 
-    if [[ ${#VM_STARTUP_ORDER} -gt 0 ]]; then
+    if [[ ${#VM_STARTUP_ORDER} -gt 0 ]] && [[ "${LOG_LEVEL}" != "dryrun" ]]; then
         logger "debug" "VM Startup Order: ${VM_STARTUP_ORDER}\n"
         IFS=","
         for VM_NAME in ${VM_STARTUP_ORDER}; do
@@ -1295,14 +1322,40 @@ buildHeaders() {
 }
 
 sendMail() {
+    SMTP=0
     #close email message
-    if [[ "${EMAIL_LOG}" -eq 1 ]] ; then
+    if [[ "${EMAIL_LOG}" -eq 1 ]] || [[ "${EMAIL_ALERT}" -eq 1 ]] ; then
+        SMTP=1
         #validate firewall has email port open for ESXi 5
         if [[ "${VER}" == "5" ]] || [[ "${VER}" == "6" ]] ; then
             /sbin/esxcli network firewall ruleset rule list | grep "${EMAIL_SERVER_PORT}" > /dev/null 2>&1
             if [[ $? -eq 1 ]] ; then
                 logger "info" "ERROR: Please enable firewall rule for email traffic on port ${EMAIL_SERVER_PORT}\n"
                 logger "info" "Please refer to ghettoVCB documentation for ESXi 5 firewall configuration\n"
+                SMTP=0
+            fi
+        fi
+    fi
+
+    if [[ "${SMTP}" -eq 1 ]] ; then
+        if [ "${EXIT}" -ne 0 ] && [ "${LOG_STATUS}" = "OK" ] ; then
+            LOG_STATUS="ERROR"
+        #    for i in ${EMAIL_TO}; do
+        #        buildHeaders ${i}
+        #        cat "${EMAIL_LOG_CONTENT}" |while read L; do sleep "${EMAIL_DELAY_INTERVAL}"; echo $L; done | "${NC_BIN}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" > /dev/null 2>&1
+        #        #"${NC_BIN}" -i "${EMAIL_DELAY_INTERVAL}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" < "${EMAIL_LOG_CONTENT}" > /dev/null 2>&1
+        #        if [[ $? -eq 1 ]] ; then
+        #            logger "info" "ERROR: Failed to email log output to ${EMAIL_SERVER}:${EMAIL_SERVER_PORT} to ${EMAIL_TO}\n"
+        #        fi
+        #    done
+        fi
+
+
+        if [ "${EMAIL_ERRORS_TO}" != "" ] && [ "${LOG_STATUS}" != "OK" ] ; then
+            if [ "${EMAIL_TO}" == "" ] ; then
+                EMAIL_TO="${EMAIL_ERRORS_TO}"
+            else
+                EMAIL_TO="${EMAIL_TO},${EMAIL_ERRORS_TO}"
             fi
         fi
 
@@ -1312,7 +1365,8 @@ sendMail() {
             IFS=','
             for i in ${EMAIL_TO}; do
                 buildHeaders ${i}
-                "${NC_BIN}" -i "${EMAIL_DELAY_INTERVAL}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" < "${EMAIL_LOG_CONTENT}" > /dev/null 2>&1
+                cat "${EMAIL_LOG_CONTENT}" |while read L; do sleep "${EMAIL_DELAY_INTERVAL}"; echo $L; done | "${NC_BIN}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" > /dev/null 2>&1
+                #"${NC_BIN}" -i "${EMAIL_DELAY_INTERVAL}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" < "${EMAIL_LOG_CONTENT}" > /dev/null 2>&1
                 if [[ $? -eq 1 ]] ; then
                     logger "info" "ERROR: Failed to email log output to ${EMAIL_SERVER}:${EMAIL_SERVER_PORT} to ${EMAIL_TO}\n"
                 fi
@@ -1320,7 +1374,8 @@ sendMail() {
             unset IFS
         else
             buildHeaders ${EMAIL_TO}
-            "${NC_BIN}" -i "${EMAIL_DELAY_INTERVAL}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" < "${EMAIL_LOG_CONTENT}" > /dev/null 2>&1
+            cat "${EMAIL_LOG_CONTENT}" |while read L; do sleep "${EMAIL_DELAY_INTERVAL}"; echo $L; done | "${NC_BIN}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" > /dev/null 2>&1
+            #"${NC_BIN}" -i "${EMAIL_DELAY_INTERVAL}" "${EMAIL_SERVER}" "${EMAIL_SERVER_PORT}" < "${EMAIL_LOG_CONTENT}" > /dev/null 2>&1
             if [[ $? -eq 1 ]] ; then
                 logger "info" "ERROR: Failed to email log output to ${EMAIL_SERVER}:${EMAIL_SERVER_PORT} to ${EMAIL_TO}\n"
             fi
