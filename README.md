@@ -17,7 +17,7 @@ Install offline bundle
 ```
 esxcli software vib install -d /vghetto-ghettoVCB-offline-bundle.zip -f
 ```
-Configure firewall rule 
+Configure firewall rule
 ```
 <ConfigRoot>
   <service>
@@ -46,7 +46,7 @@ esxcli network firewall ruleset list | grep smtp
 Manually running backup
 ```
 ./ghettoVCB.sh -a (all vms)
-./ghettoVCB.sh -f vmlistfile 
+./ghettoVCB.sh -f vmlistfile
 ```
 Setting up a cronjob
 ```
@@ -73,14 +73,14 @@ esxcli software vib remove --vibname=ghettoVCB
 Removal Result
    Message: Operation finished successfully.
    Reboot Required: false
-   VIBs Installed: 
+   VIBs Installed:
    VIBs Removed: virtuallyGhetto_bootbank_ghettoVCB_1.0.0-0.0.0
-   VIBs Skipped: 
+   VIBs Skipped:
 ```
 To restore a vm manually
 
-
-Note: Do not restore the -flat.vmdk. It will do that for you. 
+Note: Get rid of existing .vmdk files from the destination. 
+Note: Do not restore the -flat.vmdk. It will do that for you.
 ```
 rm original .vmdk files
 vmkfstools -i <backup vmdk> <original vmdk>
